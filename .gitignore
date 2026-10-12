@@ -187,3 +187,21 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+#Cryptographic setup files
+groth16.log
+groth16_new.log
+groth16_p14.log
+setup_fresh.log
+pot15_0000.ptau
+pot15_0001.ptau
+pot15_final.ptau
+
+# Zero-knowledge proof artifacts
+groth16.log
+groth16_new.log
+groth16_p14.log
+setup_fresh.log
+pot15_0000.ptau
+pot15_0001.ptau
+pot15_final.ptau
