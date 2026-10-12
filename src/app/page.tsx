@@ -1,69 +1,131 @@
-import Image from "next/image";
+'use client'
 
-export default function Home() {
+import Link from 'next/link'
+import { useEffect, useState } from 'react'
+import NavBar from '@/components/NavBar'
+import TimeGreeting from '@/components/TimeGreeting'
+
+type Race = {
+  id: string
+  position: string
+  scope: string
+  candidates: { id: string; name: string; runningMateName: string | null; manifesto: string }[]
+}
+
+type Election = {
+  id: string
+  name: string
+  status: 'DRAFT' | 'SCHEDULED' | 'ACTIVE' | 'CLOSED'
+  startTime: string
+  endTime: string
+  races: Race[]
+}
+
+const POSITION_LABELS: Record<string, string> = {
+  USRC_EXECUTIVE: 'USRC President & Vice-President',
+  FACULTY_REPRESENTATIVE: 'Faculty / College Representative',
+  FLOOR_DELEGATE: 'Floor / Block Delegate',
+  CLASS_REPRESENTATIVE: 'Class Representative',
+}
+
+export default function HomePage() {
+  const [elections, setElections] = useState<Election[]>([])
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    let active = true
+    fetch('/api/elections')
+      .then(async response => {
+        if (!response.ok) throw new Error('Election data is temporarily unavailable')
+        return response.json() as Promise<{ elections: Election[] }>
+      })
+      .then(data => {
+        if (active) setElections(data.elections)
+      })
+      .catch(err => {
+        if (active) setError(err instanceof Error ? err.message : 'Unable to load elections')
+      })
+      .finally(() => {
+        if (active) setLoading(false)
+      })
+    return () => { active = false }
+  }, [])
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <main className="min-h-screen bg-dark">
+      <NavBar />
+      <section className="max-w-6xl mx-auto px-6 pt-28 pb-14">
+        <header className="flex flex-wrap items-center justify-between gap-4 mb-8">
+          <div>
+            <TimeGreeting />
+            <h1 className="text-3xl font-black text-white">Elections</h1>
+          </div>
+          <Link href="/nomination/apply" className="btn-outline px-5 py-3">
+            Request nomination
+          </Link>
+        </header>
+
+        {loading && <p role="status" className="text-gray-400">Loading elections…</p>}
+        {error && <p role="alert" className="badge-danger">{error}</p>}
+        {!loading && !error && elections.length === 0 && (
+          <p className="text-gray-400">No active elections.</p>
+        )}
+
+        <div className="grid gap-6">
+          {elections.map(election => (
+            <article key={election.id} className="glass-card p-6">
+              <div className="flex flex-wrap items-center justify-between gap-4 mb-5">
+                <div>
+                  <h2 className="text-xl font-bold text-white">{election.name}</h2>
+                  <p className="text-sm text-gray-400 mt-1">
+                    Closes {new Date(election.endTime).toLocaleString()}
+                  </p>
+                </div>
+                <span className={election.status === 'ACTIVE' ? 'badge-success' : 'badge-gold'}>
+                  ● {election.status === 'ACTIVE' ? 'Voting open' : 'Registration open'}
+                </span>
+              </div>
+              {election.races.map(race => (
+                <section key={race.id} className="border-t border-white/10 py-5">
+                  <div className="flex items-center justify-between gap-4 mb-4">
+                    <div>
+                      <h3 className="font-semibold text-white">
+                        {POSITION_LABELS[race.position] ?? race.position}
+                      </h3>
+                      <p className="text-sm text-gray-400">{race.scope}</p>
+                    </div>
+                    {election.status === 'ACTIVE' ? (
+                      <button type="button" disabled className="btn-primary px-4 py-2">
+                        Ballot unavailable
+                      </button>
+                    ) : (
+                      <span className="text-xs text-gray-500">Ballot opens {new Date(election.startTime).toLocaleString()}</span>
+                    )}
+                  </div>
+                  <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {race.candidates.map(candidate => (
+                      <article key={candidate.id} className="candidate-card glass-card p-4">
+                        <h4 className="text-white font-semibold">{candidate.name}</h4>
+                        {candidate.runningMateName && (
+                          <p className="text-sm text-gray-300">Vice-President: {candidate.runningMateName}</p>
+                        )}
+                        <p className="text-sm text-gray-400 mt-2">{candidate.manifesto}</p>
+                      </article>
+                    ))}
+                    {race.candidates.length === 0 && (
+                      <p className="text-sm text-gray-500">No approved candidates.</p>
+                    )}
+                  </div>
+                </section>
+              ))}
+              {election.races.length === 0 && (
+                <p className="text-gray-400">No positions available for your eligibility profile.</p>
+              )}
+            </article>
+          ))}
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
-  );
+      </section>
+    </main>
+  )
 }

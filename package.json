@@ -6,21 +6,48 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "db:seed": "node prisma/seed.mjs",
+    "db:backup": "node prisma/backup.mjs",
+    "auth:provision-local": "node scripts/provision-local-accounts.mjs",
+    "auth:check": "node scripts/check-auth-config.mjs"
   },
   "dependencies": {
+    "@node-saml/node-saml": "^5.1.0",
+    "@openzeppelin/contracts": "^5.6.1",
+    "@prisma/adapter-pg": "^7.10.0",
+    "@prisma/client": "^7.10.0",
+    "@zk-kit/incremental-merkle-tree": "^1.1.0",
+    "circomlibjs": "^0.1.7",
+    "dexie": "^4.4.6",
+    "ethers": "^6.17.0",
+    "framer-motion": "^14.0.0",
+    "lucide-react": "^1.52.0",
     "next": "16.3.8",
+    "next-pwa": "^5.6.0",
+    "next-themes": "^0.4.6",
+    "nodemailer": "^10.1.0",
+    "pg": "^8.23.1",
+    "poseidon-lite": "^0.3.0",
     "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "react-dom": "19.2.8",
+    "recharts": "^3.10.1",
+    "snarkjs": "^0.7.6"
   },
   "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^7.0.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
+    "@types/nodemailer": "^8.0.2",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "dotenv": "^18.0.5",
     "eslint": "^9",
     "eslint-config-next": "16.3.8",
+    "hardhat": "^3.18.1",
+    "prisma": "^7.10.0",
     "tailwindcss": "^4",
     "typescript": "^5"
-  }
+  },
+  "type": "module"
 }

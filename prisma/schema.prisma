@@ -1,0 +1,212 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  VOTER
+  ADMIN
+  TRUSTEE
+}
+
+enum ElectionPosition {
+  USRC_EXECUTIVE
+  FACULTY_REPRESENTATIVE
+  FLOOR_DELEGATE
+  CLASS_REPRESENTATIVE
+}
+
+enum ElectionStatus {
+  DRAFT
+  SCHEDULED
+  ACTIVE
+  CLOSED
+}
+
+enum NominationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model User {
+  id                  String               @id @default(cuid())
+  institutionSubject  String               @unique
+  role                UserRole             @default(VOTER)
+  displayName         String?
+  email               String?              @unique
+  passwordHash        String?
+  facultyKey          String?
+  residenceKey        String?
+  classKey            String?
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  nominations         NominationRequest[]
+  trusteeAssignments  ElectionTrustee[]
+  reviewedNominations NominationRequest[]  @relation("NominationReviewer")
+  submittedAuditLogs  AuditLog[]           @relation("AuditActor")
+  passwordResetTokens PasswordResetToken[]
+}
+
+model PasswordResetToken {
+  tokenHash String    @id
+  userId    String
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+model Election {
+  id                 String              @id @default(cuid())
+  chainElectionId    Int                 @unique @default(autoincrement())
+  name               String
+  contractAddress    String?
+  status             ElectionStatus      @default(DRAFT)
+  startTime          DateTime
+  endTime            DateTime
+  trusteeThreshold   Int                 @default(3)
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  races              ElectionRace[]
+  nominationRequests NominationRequest[]
+  trustees           ElectionTrustee[]
+  voterRoots         VoterMerkleRoot[]
+  voterLeaves        VoterCommitment[]
+  nullifiers         Nullifier[]
+  auditLogs          AuditLog[]
+}
+
+model ElectionRace {
+  id          String              @id @default(cuid())
+  electionId  String
+  position    ElectionPosition
+  scope       String
+  scopeKey    String
+  election    Election            @relation(fields: [electionId], references: [id], onDelete: Cascade)
+  candidates  Candidate[]
+  nominations NominationRequest[]
+
+  @@unique([electionId, position, scopeKey])
+  @@index([electionId, position])
+}
+
+model ElectionTrustee {
+  id         String   @id @default(cuid())
+  electionId String
+  trusteeId  String
+  seatIndex  Int
+  assignedAt DateTime @default(now())
+  election   Election @relation(fields: [electionId], references: [id], onDelete: Cascade)
+  trustee    User     @relation(fields: [trusteeId], references: [id], onDelete: Restrict)
+
+  @@unique([electionId, trusteeId])
+  @@unique([electionId, seatIndex])
+  @@index([trusteeId])
+}
+
+model Candidate {
+  id              String             @id @default(cuid())
+  raceId          String
+  nominationId    String?            @unique
+  name            String
+  runningMateName String?
+  manifesto       String
+  approvedAt      DateTime           @default(now())
+  race            ElectionRace       @relation(fields: [raceId], references: [id], onDelete: Cascade)
+  nomination      NominationRequest? @relation("ApprovedCandidate", fields: [nominationId], references: [id], onDelete: SetNull)
+
+  @@index([raceId])
+}
+
+model NominationRequest {
+  id              String           @id @default(cuid())
+  applicantId     String
+  electionId      String
+  raceId          String
+  position        ElectionPosition
+  scope           String
+  scopeKey        String
+  candidateName   String
+  runningMateName String?
+  manifesto       String
+  status          NominationStatus @default(PENDING)
+  reviewedById    String?
+  reviewNote      String?
+  createdAt       DateTime         @default(now())
+  reviewedAt      DateTime?
+  applicant       User             @relation(fields: [applicantId], references: [id], onDelete: Restrict)
+  reviewer        User?            @relation("NominationReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  election        Election         @relation(fields: [electionId], references: [id], onDelete: Cascade)
+  race            ElectionRace     @relation(fields: [raceId], references: [id], onDelete: Cascade)
+  candidate       Candidate?       @relation("ApprovedCandidate")
+
+  @@unique([applicantId, raceId])
+  @@index([electionId, status, createdAt])
+  @@index([applicantId, electionId])
+}
+
+model VoterMerkleRoot {
+  id              String   @id @default(cuid())
+  electionId      String
+  root            String
+  transactionHash String?
+  createdAt       DateTime @default(now())
+  election        Election @relation(fields: [electionId], references: [id], onDelete: Cascade)
+
+  @@unique([electionId, root])
+  @@index([electionId, createdAt])
+}
+
+model VoterCommitment {
+  id         String   @id @default(cuid())
+  electionId String
+  commitment String
+  leafIndex  Int
+  createdAt  DateTime @default(now())
+  election   Election @relation(fields: [electionId], references: [id], onDelete: Cascade)
+
+  @@unique([electionId, commitment])
+  @@unique([electionId, leafIndex])
+  @@index([electionId])
+}
+
+model Nullifier {
+  hash       String   @id
+  electionId String
+  txHash     String?
+  createdAt  DateTime @default(now())
+  election   Election @relation(fields: [electionId], references: [id], onDelete: Cascade)
+
+  @@index([electionId, createdAt])
+}
+
+model AuditLog {
+  id          String    @id @default(cuid())
+  electionId  String?
+  actorId     String?
+  action      String
+  subjectType String?
+  subjectId   String?
+  details     Json?
+  txHash      String?
+  createdAt   DateTime  @default(now())
+  election    Election? @relation(fields: [electionId], references: [id], onDelete: SetNull)
+  actor       User?     @relation("AuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([electionId, createdAt])
+  @@index([actorId, createdAt])
+}
+
+model SamlRequest {
+  id        String   @id
+  value     String
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}
